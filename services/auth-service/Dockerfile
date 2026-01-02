@@ -20,7 +20,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application code
 COPY . .
 
-# Expose the port 
+# Expose port 
 EXPOSE 5000
 
 # Define the command to run the app
