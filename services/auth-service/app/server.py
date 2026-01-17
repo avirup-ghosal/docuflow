@@ -24,7 +24,7 @@ db = SQLAlchemy(app)
 bcrypt = Bcrypt(app)
 jwt = JWTManager(app)
 
-# 4. SQL Table Definition (Raw SQL)
+# 4. SQL Table Definition
 CREATE_USERS_TABLE = """
 CREATE TABLE IF NOT EXISTS users (
     id SERIAL PRIMARY KEY,
@@ -53,7 +53,6 @@ def register():
         # 1. Hash the password
         hashed_pw = bcrypt.generate_password_hash(password).decode('utf-8')
         
-        # 'RETURNING id' to return id
         sql = text("""
             INSERT INTO users (email, password_hash, created_at) 
             VALUES (:email, :pwd, :created) 

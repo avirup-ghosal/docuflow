@@ -1,3 +1,4 @@
+.git
 # Ignore virtual environment
 venv/
 env/
