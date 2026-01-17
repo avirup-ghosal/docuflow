@@ -1,13 +1,14 @@
 
 services:
-  # 1. The Database
+  
+  # Postgres (For Auth Service)
   postgres:
     image: postgres:15-alpine
     container_name: doc_postgres
     environment:
-      POSTGRES_USER: auth_user
-      POSTGRES_PASSWORD: auth_password
-      POSTGRES_DB: auth_db
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "5432:5432"
     networks:
@@ -15,8 +16,55 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
 
+  # MongoDB (For Upload Service Metadata)
+  mongodb:
+    image: mongo:6.0
+    container_name: doc_mongo
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USER}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD}
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - doc_network
 
-  # 2. AUTH SERVICE
+  # RabbitMQ (For Task Queues)
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: doc_rabbitmq
+    restart: always
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASS}
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      - doc_network
+
+  # MinIO (For File Storage)
+  minio:
+    image: minio/minio
+    container_name: minio
+    command: server /data --console-address ":9001"
+    restart: always
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    networks:
+      - doc_network
+
+  # Auth Service
   auth-service:
     build:
       context: ./services/auth-service
@@ -25,16 +73,82 @@ services:
       - "5000:5000"
     environment:
       DB_HOST: postgres
-      JWT_SECRET_KEY: super-secret-key
+      DB_USER: ${POSTGRES_USER}      # Make sure your code uses this!
+      DB_PASS: ${POSTGRES_PASSWORD}  # Make sure your code uses this!
+      DB_NAME: ${POSTGRES_DB}        # Make sure your code uses this!
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
     depends_on:
       - postgres
     networks:
       - doc_network
 
-networks:
-  doc_network:
-    driver: bridge
+  # Upload Service
+  upload-service:
+    build:
+      context: ./services/upload-service
+    container_name: doc_upload_service
+    restart: always
+    depends_on:
+      - mongodb
+      - rabbitmq
+      - minio
+    environment:
+      - MONGO_URI=${MONGO_URI}
+      - RABBITMQ_URI=${RABBITMQ_URI}
+      - S3_ENDPOINT_URL=${S3_ENDPOINT_URL}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
+      - AWS_ACCESS_KEY_ID=${MINIO_ROOT_USER}
+      - AWS_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD}
+      - AWS_REGION=us-east-1
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY}
+    networks:
+      - doc_network
 
+  # Gateway (Nginx)
+  gateway:
+    image: nginx:alpine
+    container_name: doc_gateway
+    restart: always
+    ports:
+      - "80:80"
+    volumes:
+      - ./services/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - auth-service
+      - upload-service
+    networks:
+      - doc_network
+
+  # Worker Service
+  worker-service:
+    build: 
+      context: ./services/worker-service
+    container_name: doc_worker_service
+    restart: always
+    depends_on:
+      - rabbitmq
+      - mongodb
+      - minio
+    environment:
+      - MONGO_URI=${MONGO_URI}
+      - RABBITMQ_URI=${RABBITMQ_URI}
+      - AWS_ACCESS_KEY_ID=${MINIO_ROOT_USER}
+      - AWS_SECRET_ACCESS_KEY=${MINIO_ROOT_PASSWORD}
+      - AWS_REGION=us-east-1
+      - S3_ENDPOINT_URL=${S3_ENDPOINT_URL}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
+    networks:
+      - doc_network
+
+# ----------------------------------------------------------------
+# VOLUMES & NETWORKS
+# ----------------------------------------------------------------
 volumes:
   postgres_data:
   mongo_data:
+  minio_data:
+  rabbitmq_data:
+
+networks:
+  doc_network:
+    driver: bridge
