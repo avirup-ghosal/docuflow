@@ -73,9 +73,9 @@ services:
       - "5000:5000"
     environment:
       DB_HOST: postgres
-      DB_USER: ${POSTGRES_USER}      # Make sure your code uses this!
-      DB_PASS: ${POSTGRES_PASSWORD}  # Make sure your code uses this!
-      DB_NAME: ${POSTGRES_DB}        # Make sure your code uses this!
+      DB_USER: ${POSTGRES_USER}      
+      DB_PASS: ${POSTGRES_PASSWORD}  
+      DB_NAME: ${POSTGRES_DB}        
       JWT_SECRET_KEY: ${JWT_SECRET_KEY}
     depends_on:
       - postgres

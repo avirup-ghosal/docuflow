@@ -88,6 +88,9 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     token = credentials.credentials
     try:
         # Decode the token using the Secret Key shared with Auth Service
+        print("---------------------------------------------------")
+        print(f"DEBUG CHECK: The loaded Secret Key is: '{JWT_SECRET}'")
+        print("---------------------------------------------------")
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         user_id = payload.get("sub")
         if not user_id:
