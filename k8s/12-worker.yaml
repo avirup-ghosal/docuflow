@@ -1,0 +1,51 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: worker-service
+  template:
+    metadata:
+      labels:
+        app: worker-service
+    spec:
+      containers:
+        - name: worker-service
+          image: docuflow-worker:latest
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: MONGO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: docuflow-secrets
+                  key: MONGO_PASSWORD
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: docuflow-secrets
+                  key: RABBITMQ_PASSWORD
+            # Construct URIs dynamically
+            - name: MONGO_URI
+              value: "mongodb://admin:$(MONGO_PASSWORD)@mongo:27017"
+            - name: RABBITMQ_URI
+              value: "amqp://guest:$(RABBITMQ_PASSWORD)@rabbitmq:5672/"
+            - name: S3_ENDPOINT_URL
+              value: "http://minio:9000"
+            - name: S3_BUCKET_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: docuflow-config
+                  key: minio-bucket
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                 secretKeyRef:
+                   name: docuflow-secrets
+                   key: MINIO_ROOT_USER
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                 secretKeyRef:
+                   name: docuflow-secrets
+                   key: MINIO_ROOT_PASSWORD

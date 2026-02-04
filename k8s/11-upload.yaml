@@ -1,0 +1,73 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: upload-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: upload-service
+  template:
+    metadata:
+      labels:
+        app: upload-service
+    spec:
+      containers:
+        - name: upload-service
+          image: docuflow-upload:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          # We construct the connection strings manually using Secrets + Service Names
+          env:
+            - name: MONGO_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: docuflow-secrets
+                  key: MONGO_PASSWORD
+            - name: RABBITMQ_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: docuflow-secrets
+                  key: RABBITMQ_PASSWORD
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: docuflow-secrets
+                  key: JWT_SECRET_KEY
+            # Overriding the URI variables to use K8s internal DNS
+            - name: MONGO_URI
+              value: "mongodb://admin:$(MONGO_PASSWORD)@mongo:27017"
+            - name: RABBITMQ_URI
+              value: "amqp://guest:$(RABBITMQ_PASSWORD)@rabbitmq:5672/"
+            - name: S3_ENDPOINT_URL
+              value: "http://minio:9000"
+            - name: AWS_ACCESS_KEY_ID
+              valueFrom:
+                 secretKeyRef:
+                   name: docuflow-secrets
+                   key: MINIO_ROOT_USER
+            - name: AWS_SECRET_ACCESS_KEY
+              valueFrom:
+                 secretKeyRef:
+                   name: docuflow-secrets
+                   key: MINIO_ROOT_PASSWORD
+            - name: S3_BUCKET_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: docuflow-config
+                  key: minio-bucket
+          # Note: We use $(VAR) syntax in 'value' to interpolate env vars defined above
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: upload-service
+spec:
+  selector:
+    app: upload-service
+  ports:
+    - protocol: TCP
+      port: 8000
+      targetPort: 8000

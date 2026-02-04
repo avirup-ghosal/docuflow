@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: docuflow-config
+data:
+  postgres-user: "postgres"
+  postgres-db: "docuflow_auth"
+  mongo-db: "docuflow"
+  rabbitmq-user: "guest"
+  minio-bucket: "documents"
+  # Service Hostnames (Internal DNS)
+  postgres-host: "postgres-service"
+  mongo-host: "mongo"
+  rabbitmq-host: "rabbitmq"
+  minio-host: "minio"
